@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Comandante</title>
+
+<link rel="stylesheet" href="/css/styles.css"/>
+
+<style>
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day {
+  padding: 10px;
+  border-radius: 10px;
+  background: #1e293b;
+  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.day:hover {
+  background: #334155;
+}
+
+.day.voado { background: #16a34a; }
+.day.folga { background: #64748b; }
+.day.standby { background: #0ea5e9; }
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: #020503;
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+}
+
+button {
+  width: 100%;
+  margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>📅 Meu Calendário</h2>
+
+  <div id="calendar" class="calendar"></div>
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalDate"></h3>
+
+    <p>✈️ Horas: <span id="modalHoras"></span></p>
+    <p>Status: <span id="modalStatus"></span></p>
+    <p id="modalObs"></p>
+
+    <button onclick="solicitarFolga()">Solicitar Folga</button>
+    <button onclick="solicitarAjuste()">Solicitar Ajuste</button>
+    <button onclick="fecharModal()">Fechar</button>
+  </div>
+</div>
+
+<script type="module">
+import { getSupabase } from '/js/supabase-config.js';
+
+let supabase;
+let dados = [];
+let diaSelecionado = null;
+
+async function init() {
+  supabase = await getSupabase();
+  carregarCalendario();
+}
+
+async function carregarCalendario() {
+  const { data } = await supabase
+    .from('calendar_events')
+    .select('*');
+
+  dados = data || [];
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const cal = document.getElementById('calendar');
+  cal.innerHTML = '';
+
+  for (let i = 1; i <= 30; i++) {
+    const d = document.createElement('div');
+    d.className = 'day';
+
+    const dataStr = `2026-05-${String(i).padStart(2,'0')}`;
+    const registro = dados.find(r => r.data === dataStr);
+
+    d.innerHTML = `<strong>${i}</strong>`;
+
+    if (registro) {
+      if (registro.status === 'VOADO') d.classList.add('voado');
+      if (registro.status.includes('FOLGA')) d.classList.add('folga');
+      if (registro.status === 'STAND_BY') d.classList.add('standby');
+    }
+
+    d.onclick = () => abrirModal(dataStr, registro);
+
+    cal.appendChild(d);
+  }
+}
+
+function abrirModal(data, registro) {
+  diaSelecionado = data;
+
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalDate').innerText = data;
+
+  document.getElementById('modalHoras').innerText =
+    registro?.horas || '0';
+
+  document.getElementById('modalStatus').innerText =
+    registro?.status || 'SEM REGISTRO';
+
+  document.getElementById('modalObs').innerText =
+    registro?.observacao || '';
+}
+
+function fecharModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+async function solicitarFolga() {
+  const justificativa = prompt('Motivo da folga:');
+
+  await supabase.from('calendar_requests').insert({
+    data: diaSelecionado,
+    tipo_solicitacao: 'FOLGA',
+    justificativa
+  });
+
+  alert('Solicitação enviada');
+  fecharModal();
+}
+
+async function solicitarAjuste() {
+  const justificativa = prompt('Descreva o ajuste:');
+
+  await supabase.from('calendar_requests').insert({
+    data: diaSelecionado,
+    tipo_solicitacao: 'AJUSTE_HORAS',
+    justificativa
+  });
+
+  alert('Solicitação enviada');
+  fecharModal();
+}
+
+init();
+</script>
+
+</body>
+</html>
