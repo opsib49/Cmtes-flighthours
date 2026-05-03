@@ -1,0 +1,124 @@
+<script type="module">
+import { apiFetch, checkAuthOrRedirect } from './js/supabase-config.js'
+
+await checkAuthOrRedirect()
+
+const $ = id => document.getElementById(id)
+
+async function loadUser(){
+  const data = await apiFetch('/api/me')
+  $('user').innerHTML = `${data.user.nome} - ${data.user.horas_gamificadas}h fictícias`
+}
+
+async function roll(){
+  try{
+    const data = await apiFetch('/api/game/roll', { method:'POST' })
+
+    $('resultado').innerText = data.mensagem
+
+    if(data.precisaEscolherAlvo){
+      await abrirModalSabotagem()
+    }
+
+    await loadUser()
+    await loadRanking()
+
+  }catch(e){
+    alert(e.message)
+  }
+}
+
+async function abrirModalSabotagem(){
+  const data = await apiFetch('/api/game/victims')
+
+  const modal = document.createElement('div')
+  modal.className = 'modal-sabotagem'
+
+  modal.innerHTML = `
+    <div class="modal-card">
+      <h2>🦊 DICK VIGARISTA</h2>
+      <p>Escolha uma vítima para roubar 2 horas fictícias.</p>
+
+      <div class="victim-list">
+        ${
+          data.victims.length
+            ? data.victims.map(v => `
+              <button 
+                class="victim-btn ${v.protegido ? 'disabled' : ''}" 
+                data-id="${v.id}" 
+                ${v.protegido ? 'disabled' : ''}
+              >
+                <strong>${v.nome}</strong>
+                <span>${v.horas_gamificadas || 0}h fictícias</span>
+                ${v.protegido ? '<small>Protegido</small>' : ''}
+              </button>
+            `).join('')
+            : '<p>Nenhum comandante disponível.</p>'
+        }
+      </div>
+
+      <button id="cancelarSabotagem" class="btn-cancelar">Cancelar</button>
+    </div>
+  `
+
+  document.body.appendChild(modal)
+
+  modal.querySelectorAll('.victim-btn:not(.disabled)').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const victimId = btn.dataset.id
+        const result = await apiFetch('/api/game/sabotage', {
+          method:'POST',
+          body: JSON.stringify({ victimId })
+        })
+
+        alert(result.mensagem)
+        modal.remove()
+
+        await loadUser()
+        await loadRanking()
+        await loadFeed()
+
+      } catch(e) {
+        alert(e.message)
+      }
+    })
+  })
+
+  modal.querySelector('#cancelarSabotagem').addEventListener('click', () => {
+    modal.remove()
+  })
+}
+
+async function loadRanking(){
+  const data = await apiFetch('/api/game/ranking')
+
+  $('ranking').innerHTML =
+    data.players.map((p,i)=>
+      `<div class="ranking-line">
+        <span>${i+1}º ${p.nome}</span>
+        <strong>${p.horas_gamificadas || 0}h</strong>
+      </div>`
+    ).join('')
+}
+
+async function loadFeed(){
+  const data = await apiFetch('/api/game/feed')
+
+  const feed = document.getElementById('feed')
+  if (!feed) return
+
+  feed.innerHTML = data.feed.map(item => `
+    <div class="feed-line">
+      ${item.mensagem}
+      <small>${new Date(item.timestamp).toLocaleString('pt-BR')}</small>
+    </div>
+  `).join('')
+}
+
+window.roll = roll
+
+await loadUser()
+await loadRanking()
+await loadFeed()
+</script>
