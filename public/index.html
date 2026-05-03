@@ -1,133 +1,100 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>VOARE FlightHours</title>
 
-  <link rel="stylesheet" href="/css/styles.css">
-
-  <style>
-    body{
-      margin:0;
-      font-family: Arial;
-      background: radial-gradient(circle at top, #020503, #000);
-      color:white;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-height:100vh;
-    }
-
-    .container{
-      text-align:center;
-      max-width:420px;
-      width:90%;
-    }
-
-    h1{
-      color:#10b981;
-      margin-bottom:10px;
-    }
-
-    p{
-      color:#94a3b8;
-      margin-bottom:30px;
-    }
-
-    .btn{
-      display:block;
-      width:100%;
-      padding:14px;
-      margin:10px 0;
-      border-radius:12px;
-      border:none;
-      font-size:16px;
-      cursor:pointer;
-    }
-
-    .primary{
-      background:#10b981;
-      color:black;
-      font-weight:bold;
-    }
-
-    .secondary{
-      background:#111827;
-      color:white;
-      border:1px solid #10b98144;
-    }
-
-    .gold{
-      background:#facc15;
-      color:black;
-    }
-
-    .radar-bg{
-      position:fixed;
-      inset:0;
-      background-image: radial-gradient(circle, rgba(250,204,21,0.05) 1px, transparent 1px);
-      background-size: 40px 40px;
-      z-index:-1;
-    }
-  </style>
+  <link rel="stylesheet" href="/css/styles.css"/>
 </head>
 
 <body>
+  <main id="app">
+    <div class="container">
+      <div class="card" style="text-align:center;margin-top:40px;">
+        <h1>✈️ VOARE</h1>
+        <p style="color:#94a3b8;margin-bottom:20px;">
+          Sistema de horas de voo, perfil dos comandantes e módulo gamificado.
+        </p>
 
-<div class="radar-bg"></div>
+        <div id="statusBox" class="msg warning">
+          Verificando sessão...
+        </div>
 
-<div class="container">
-  <h1>✈️ VOARE</h1>
-  <p>Controle de horas + sistema gamificado dos comandantes</p>
+        <button id="btnEntrar">Entrar</button>
+        <button id="btnCadastro" class="secondary">Cadastrar</button>
+      </div>
 
-  <button class="btn primary" onclick="go('login.html')">
-    🔐 Entrar
-  </button>
+      <div class="card" style="margin-top:15px;">
+        <h3>Operação</h3>
+        <button id="btnDashboard">Painel do Comandante</button>
+        <button id="btnGame" class="secondary">🎲 Corrida Maluca</button>
+        <button id="btnAdmin" class="secondary" style="display:none;">⚙️ Administração</button>
+        <button id="btnLogout" class="secondary" style="display:none;">Sair</button>
+      </div>
 
-  <button class="btn secondary" onclick="go('cadastro.html')">
-    📝 Cadastrar
-  </button>
-
-  <button class="btn gold" onclick="go('game.html')">
-    🎲 Corrida Maluca
-  </button>
-
-  <button class="btn secondary" onclick="go('dashboard.html')">
-    📊 Painel de Horas
-  </button>
-
-  <button id="adminBtn" class="btn secondary" style="display:none;" onclick="go('admin.html')">
-    ⚙️ Admin
-  </button>
-</div>
+      <div class="card" style="margin-top:15px;">
+        <h3>Radar VOARE</h3>
+        <div id="radar" class="radar"></div>
+      </div>
+    </div>
+  </main>
 
 <script type="module">
-import { supabase } from './js/supabase-config.js'
+import { getSupabase, apiFetch } from '/js/supabase-config.js';
+import { RadarEngine } from '/js/RadarEngine.js';
 
-window.go = (url)=>{
-  window.location.href = url
+const $ = id => document.getElementById(id);
+
+let supabase = null;
+let usuario = null;
+
+async function iniciar() {
+  supabase = await getSupabase();
+
+  const radar = new RadarEngine('radar');
+  radar.init();
+
+  $('btnEntrar').addEventListener('click', () => window.location.href = '/login.html');
+  $('btnCadastro').addEventListener('click', () => window.location.href = '/cadastro.html');
+  $('btnGame').addEventListener('click', () => window.location.href = '/game.html');
+  $('btnDashboard').addEventListener('click', () => window.location.href = '/dashboard.html');
+  $('btnAdmin').addEventListener('click', () => window.location.href = '/admin.html');
+
+  $('btnLogout').addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login.html';
+  });
+
+  await verificarSessao();
 }
 
-// Verificar se usuário é admin
-async function checkAdmin(){
-  const { data: { user } } = await supabase.auth.getUser()
+async function verificarSessao() {
+  try {
+    const { data } = await supabase.auth.getSession();
 
-  if(!user) return
+    if (!data?.session) {
+      $('statusBox').textContent = 'Acesse sua conta para continuar.';
+      $('btnLogout').style.display = 'none';
+      return;
+    }
 
-  const { data } = await supabase
-    .from('users')
-    .select('patente')
-    .eq('id', user.id)
-    .single()
+    const me = await apiFetch('/api/me');
+    usuario = me.user;
 
-  if(data?.patente === 'Major'){
-    document.getElementById('adminBtn').style.display = 'block'
+    $('statusBox').textContent = `Logado como ${usuario.nome || usuario.email}`;
+    $('btnLogout').style.display = 'block';
+
+    if (usuario.perfil === 'admin') {
+      $('btnAdmin').style.display = 'block';
+    }
+
+  } catch (e) {
+    $('statusBox').textContent = 'Erro ao verificar sessão: ' + e.message;
   }
 }
 
-checkAdmin()
+iniciar();
 </script>
-
 </body>
 </html>
