@@ -1,156 +1,196 @@
-import FlightHours from './FlightHours.js';
+import { supabase } from './supabase-config.js';
 
-class RadarEngine {
+class FlightHours {
+  async getUsuarioAtual() {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw new Error('Usuário não autenticado.');
+    return data.user;
+  }
 
-    constructor() {
-        this.currentDate = new Date();
-        this.eventos = [];
-        this.userId = null;
+  calcularHoras(inicial, final) {
+    const ini = Number(inicial);
+    const fim = Number(final);
+
+    if (!Number.isFinite(ini) || !Number.isFinite(fim)) {
+      throw new Error('Horímetros inválidos.');
     }
 
-    async init(userId) {
-        this.userId = userId;
-        await FlightHours.init();
-        this.eventos = await FlightHours.getEventosCalendario(userId);
-
-        this.renderCalendario();
+    if (fim < ini) {
+      throw new Error('Horímetro final menor que o inicial.');
     }
 
-    // =========================
-    // RENDER CALENDÁRIO
-    // =========================
-    renderCalendario() {
+    return Number((fim - ini).toFixed(1));
+  }
 
-        const container = document.getElementById('calendar');
-        if (!container) return;
+  async uploadFoto(file, userId) {
+    if (!file) throw new Error('Selecione uma foto.');
 
-        container.innerHTML = '';
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `horimetros/${userId}/${Date.now()}.${ext}`;
 
-        const ano = this.currentDate.getFullYear();
-        const mes = this.currentDate.getMonth();
+    const { error: uploadError } = await supabase
+      .storage
+      .from('flight-hours')
+      .upload(fileName, file, {
+        upsert: true
+      });
 
-        const primeiroDia = new Date(ano, mes, 1).getDay();
-        const totalDias = new Date(ano, mes + 1, 0).getDate();
+    if (uploadError) throw new Error(uploadError.message);
 
-        for (let i = 0; i < primeiroDia; i++) {
-            container.innerHTML += `<div class="day empty"></div>`;
-        }
+    const { data } = supabase
+      .storage
+      .from('flight-hours')
+      .getPublicUrl(fileName);
 
-        for (let dia = 1; dia <= totalDias; dia++) {
+    return data.publicUrl;
+  }
 
-            const dataStr = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  async registrarHorasComFoto({
+    data_voo,
+    horimetro_inicial,
+    horimetro_final,
+    fotoFile,
+    observacao = ''
+  }) {
+    const user = await this.getUsuarioAtual();
 
-            const resumo = FlightHours.getResumoDia(this.eventos, dataStr);
+    const horas_voadas = this.calcularHoras(
+      horimetro_inicial,
+      horimetro_final
+    );
 
-            container.innerHTML += `
-                <div class="day" data-date="${dataStr}">
-                    <div class="numero">${dia}</div>
-                    <div class="horas">${resumo.horas || ''}</div>
-                </div>
-            `;
-        }
+    const foto_url = await this.uploadFoto(fotoFile, user.id);
 
-        this.bindEventosDias();
-    }
+    const { data, error } = await supabase
+      .from('flight_hours')
+      .insert({
+        user_id: user.id,
+        data_voo,
+        horimetro_inicial,
+        horimetro_final,
+        foto_url,
+        status: 'pendente',
+        observacao
+      })
+      .select()
+      .single();
 
-    // =========================
-    // CLICK NO DIA
-    // =========================
-    bindEventosDias() {
-        document.querySelectorAll('.day').forEach(el => {
-            el.addEventListener('click', () => {
-                const data = el.dataset.date;
+    if (error) throw new Error(error.message);
 
-                if (!data) return;
+    return {
+      ...data,
+      horas_voadas
+    };
+  }
 
-                this.toggleModal(data);
-            });
-        });
-    }
+  async getMinhasHoras() {
+    const user = await this.getUsuarioAtual();
 
-    // =========================
-    // MODAL FLUTUANTE
-    // =========================
-    toggleModal(data) {
+    const { data, error } = await supabase
+      .from('flight_hours')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('data_voo', { ascending: false });
 
-        let modal = document.getElementById('dayModal');
+    if (error) throw new Error(error.message);
 
-        if (modal) {
-            modal.remove();
-            return;
-        }
+    return data || [];
+  }
 
-        const resumo = FlightHours.getResumoDia(this.eventos, data);
+  async getResumoDia(data_voo) {
+    const user = await this.getUsuarioAtual();
 
-        modal = document.createElement('div');
-        modal.id = 'dayModal';
+    const { data, error } = await supabase
+      .from('flight_hours')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('data_voo', data_voo);
 
-        modal.innerHTML = `
-            <div class="modal-box">
-                <h3>${data}</h3>
+    if (error) throw new Error(error.message);
 
-                <p><strong>Status:</strong> ${resumo.status}</p>
-                <p><strong>Horas:</strong> ${resumo.horas}</p>
+    const registros = data || [];
 
-                ${resumo.horimetro_inicial ? `<p>Inicial: ${resumo.horimetro_inicial}</p>` : ''}
-                ${resumo.horimetro_final ? `<p>Final: ${resumo.horimetro_final}</p>` : ''}
+    const totalHoras = registros.reduce((total, item) => {
+      return total + Number(item.horas_voadas || 0);
+    }, 0);
 
-                ${resumo.foto_url ? `<img src="${resumo.foto_url}" style="width:100%; border-radius:10px;">` : ''}
+    return {
+      data_voo,
+      totalHoras,
+      registros
+    };
+  }
 
-                <textarea id="justificativa" placeholder="Justificativa..." style="width:100%; margin-top:10px;"></textarea>
+  async getEventosCalendario() {
+    const user = await this.getUsuarioAtual();
 
-                <button id="btnFolga">Solicitar Folga</button>
-                <button id="btnAjuste">Solicitar Ajuste</button>
-                <button id="btnFechar">Fechar</button>
-            </div>
-        `;
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('data', { ascending: true });
 
-        document.body.appendChild(modal);
+    if (error) throw new Error(error.message);
 
-        // Eventos dos botões
-        document.getElementById('btnFechar').onclick = () => modal.remove();
+    return data || [];
+  }
 
-        document.getElementById('btnFolga').onclick = async () => {
-            const justificativa = document.getElementById('justificativa').value;
+  async solicitarFolga(data, mensagem) {
+    const user = await this.getUsuarioAtual();
 
-            await FlightHours.solicitarFolga(this.userId, data, justificativa);
+    const { error } = await supabase
+      .from('requests')
+      .insert({
+        user_id: user.id,
+        data,
+        tipo: 'folga',
+        mensagem,
+        status: 'pendente'
+      });
 
-            alert('Solicitação de folga enviada!');
-            modal.remove();
-        };
+    if (error) throw new Error(error.message);
+  }
 
-        document.getElementById('btnAjuste').onclick = async () => {
-            const justificativa = document.getElementById('justificativa').value;
+  async solicitarAjuste(data, mensagem) {
+    const user = await this.getUsuarioAtual();
 
-            await FlightHours.solicitarAjuste(this.userId, data, justificativa);
+    const { error } = await supabase
+      .from('requests')
+      .insert({
+        user_id: user.id,
+        data,
+        tipo: 'ajuste',
+        mensagem,
+        status: 'pendente'
+      });
 
-            alert('Solicitação de ajuste enviada!');
-            modal.remove();
-        };
-    }
+    if (error) throw new Error(error.message);
+  }
 
-    // =========================
-    // RESUMOS AVANÇADOS
-    // =========================
-    renderResumoMensal() {
+  async getTotalMes(ano, mes) {
+    const user = await this.getUsuarioAtual();
 
-        const ano = this.currentDate.getFullYear();
-        const mes = this.currentDate.getMonth() + 1;
+    const inicio = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    const fim = new Date(ano, mes, 0).toISOString().slice(0, 10);
 
-        const total = FlightHours.getTotalMes(this.eventos, ano, mes);
-        const dias = FlightHours.getDiasVoados(this.eventos, ano, mes);
-        const consecutivos = FlightHours.getDiasConsecutivosVoados(this.eventos);
-        const folga = FlightHours.getProximaFolga(this.eventos);
+    const { data, error } = await supabase
+      .from('flight_hours')
+      .select('horas_voadas')
+      .eq('user_id', user.id)
+      .gte('data_voo', inicio)
+      .lte('data_voo', fim)
+      .eq('status', 'aprovado');
 
-        document.getElementById('totalHoras').textContent = total;
-        document.getElementById('diasVoados').textContent = dias;
-        document.getElementById('diasConsecutivos').textContent = consecutivos;
+    if (error) throw new Error(error.message);
 
-        if (folga) {
-            document.getElementById('proximaFolga').textContent = folga.data;
-        }
-    }
+    return (data || []).reduce((total, item) => {
+      return total + Number(item.horas_voadas || 0);
+    }, 0);
+  }
 
+  preverHoras(horasPorDia, dias) {
+    return Number((Number(horasPorDia || 0) * Number(dias || 0)).toFixed(1));
+  }
 }
 
-export default new RadarEngine();
+export default new FlightHours();
