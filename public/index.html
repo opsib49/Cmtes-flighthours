@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VOARE FlightHours</title>
+
+  <link rel="stylesheet" href="/css/styles.css">
+
+  <style>
+    body{
+      margin:0;
+      font-family: Arial;
+      background: radial-gradient(circle at top, #020503, #000);
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+    }
+
+    .container{
+      text-align:center;
+      max-width:420px;
+      width:90%;
+    }
+
+    h1{
+      color:#10b981;
+      margin-bottom:10px;
+    }
+
+    p{
+      color:#94a3b8;
+      margin-bottom:30px;
+    }
+
+    .btn{
+      display:block;
+      width:100%;
+      padding:14px;
+      margin:10px 0;
+      border-radius:12px;
+      border:none;
+      font-size:16px;
+      cursor:pointer;
+    }
+
+    .primary{
+      background:#10b981;
+      color:black;
+      font-weight:bold;
+    }
+
+    .secondary{
+      background:#111827;
+      color:white;
+      border:1px solid #10b98144;
+    }
+
+    .gold{
+      background:#facc15;
+      color:black;
+    }
+
+    .radar-bg{
+      position:fixed;
+      inset:0;
+      background-image: radial-gradient(circle, rgba(250,204,21,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index:-1;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="radar-bg"></div>
+
+<div class="container">
+  <h1>✈️ VOARE</h1>
+  <p>Controle de horas + sistema gamificado dos comandantes</p>
+
+  <button class="btn primary" onclick="go('login.html')">
+    🔐 Entrar
+  </button>
+
+  <button class="btn secondary" onclick="go('cadastro.html')">
+    📝 Cadastrar
+  </button>
+
+  <button class="btn gold" onclick="go('game.html')">
+    🎲 Corrida Maluca
+  </button>
+
+  <button class="btn secondary" onclick="go('dashboard.html')">
+    📊 Painel de Horas
+  </button>
+
+  <button id="adminBtn" class="btn secondary" style="display:none;" onclick="go('admin.html')">
+    ⚙️ Admin
+  </button>
+</div>
+
+<script type="module">
+import { supabase } from './js/supabase-config.js'
+
+window.go = (url)=>{
+  window.location.href = url
+}
+
+// Verificar se usuário é admin
+async function checkAdmin(){
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if(!user) return
+
+  const { data } = await supabase
+    .from('users')
+    .select('patente')
+    .eq('id', user.id)
+    .single()
+
+  if(data?.patente === 'Major'){
+    document.getElementById('adminBtn').style.display = 'block'
+  }
+}
+
+checkAdmin()
+</script>
+
+</body>
+</html>
