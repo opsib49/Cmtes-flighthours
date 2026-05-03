@@ -1,0 +1,151 @@
+body {
+  background: #020503;
+  color: white;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 16px;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+h1, h2, h3 {
+  color: #10b981;
+}
+
+.alert {
+  color: #facc15;
+  font-weight: bold;
+}
+
+button {
+  background: #10b981;
+  border: none;
+  padding: 14px;
+  color: #02130b;
+  width: 100%;
+  margin: 10px 0;
+  border-radius: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(.97);
+}
+
+.ranking-line,
+.feed-line {
+  background: rgba(15,23,42,.85);
+  border: 1px solid rgba(16,185,129,.18);
+  padding: 10px;
+  border-radius: 12px;
+  margin: 8px 0;
+}
+
+.ranking-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.feed-line {
+  display: block;
+  text-align: left;
+  font-size: 13px;
+}
+
+.feed-line small {
+  display: block;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* Modal Sabotagem */
+.modal-sabotagem {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 999;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 420px;
+  background: #06110b;
+  border: 1px solid rgba(16,185,129,.35);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 0 45px rgba(16,185,129,.18);
+  text-align: center;
+}
+
+.modal-card h2 {
+  color: #facc15;
+  margin-bottom: 10px;
+}
+
+.modal-card p {
+  color: #cbd5e1;
+  margin-bottom: 18px;
+}
+
+.victim-list {
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.victim-btn {
+  background: rgba(15,23,42,.95);
+  border: 1px solid rgba(16,185,129,.25);
+  border-radius: 16px;
+  color: white;
+  padding: 14px;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+}
+
+.victim-btn strong {
+  color: #10b981;
+}
+
+.victim-btn span {
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.victim-btn small {
+  color: #facc15;
+  font-weight: bold;
+}
+
+.victim-btn.disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.btn-cancelar {
+  background: #334155;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 12px;
+  }
+
+  .modal-card {
+    padding: 18px;
+  }
+}
