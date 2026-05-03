@@ -1,111 +1,152 @@
-export class FlightHours {
-  constructor(eventos) {
-    this.eventos = eventos || [];
-  }
+import { supabase } from './supabase-config.js';
 
-  // =========================
-  // 🔹 HORAS DE UM DIA
-  // =========================
-  getHorasDoDia(data) {
-    const dia = this.eventos.find(e => e.data === data);
-    return dia?.horas || 0;
-  }
+class FlightHours {
 
-  // =========================
-  // 🔹 STATUS DO DIA
-  // =========================
-  getStatusDoDia(data) {
-    const dia = this.eventos.find(e => e.data === data);
-    return dia?.status || 'SEM REGISTRO';
-  }
+    // =========================
+    // BUSCAR REGISTROS DO CMTE
+    // =========================
+    async getMyFlights(userId) {
+        const { data, error } = await supabase
+            .from('flight_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .order('data_voo', { ascending: false });
 
-  // =========================
-  // 🔹 TOTAL NO MÊS
-  // =========================
-  getTotalMes(ano, mes) {
-    return this.eventos
-      .filter(e => {
-        const d = new Date(e.data);
-        return d.getFullYear() === ano && (d.getMonth()+1) === mes;
-      })
-      .reduce((total, e) => total + (e.horas || 0), 0);
-  }
+        if (error) throw new Error(error.message);
 
-  // =========================
-  // 🔹 DIAS VOADOS
-  // =========================
-  getDiasVoados(ano, mes) {
-    return this.eventos.filter(e => {
-      const d = new Date(e.data);
-      return e.status === 'VOADO' &&
-             d.getFullYear() === ano &&
-             (d.getMonth()+1) === mes;
-    }).length;
-  }
+        return data || [];
+    }
 
-  // =========================
-  // 🔹 DIAS CONSECUTIVOS
-  // =========================
-  getDiasConsecutivos() {
-    const ordenado = this.eventos
-      .filter(e => e.status === 'VOADO')
-      .sort((a,b) => new Date(a.data) - new Date(b.data));
+    // =========================
+    // CALCULAR HORAS
+    // =========================
+    calcularHoras(inicial, final) {
+        const horas = Number(final) - Number(inicial);
 
-    let max = 0;
-    let atual = 0;
-    let anterior = null;
-
-    ordenado.forEach(e => {
-      const dataAtual = new Date(e.data);
-
-      if (anterior) {
-        const diff = (dataAtual - anterior) / (1000*60*60*24);
-
-        if (diff === 1) {
-          atual++;
-        } else {
-          atual = 1;
+        if (horas < 0) {
+            throw new Error('Horímetro final menor que o inicial');
         }
-      } else {
-        atual = 1;
-      }
 
-      if (atual > max) max = atual;
-      anterior = dataAtual;
-    });
+        return Number(horas.toFixed(1));
+    }
 
-    return max;
-  }
+    // =========================
+    // REGISTRAR VOO (ADMIN)
+    // =========================
+    async registrarVoo({
+        user_id,
+        data_voo,
+        horimetro_inicial,
+        horimetro_final,
+        foto_url
+    }) {
 
-  // =========================
-  // 🔹 PRÓXIMA FOLGA
-  // =========================
-  getProximaFolga() {
-    const hoje = new Date();
+        const horas_voadas = this.calcularHoras(
+            horimetro_inicial,
+            horimetro_final
+        );
 
-    const futura = this.eventos
-      .filter(e => {
-        const d = new Date(e.data);
-        return d > hoje && e.status.includes('FOLGA');
-      })
-      .sort((a,b) => new Date(a.data) - new Date(b.data));
+        const { error } = await supabase
+            .from('flight_logs')
+            .insert({
+                user_id,
+                data_voo,
+                horimetro_inicial,
+                horimetro_final,
+                horas_voadas,
+                foto_url
+            });
 
-    return futura[0]?.data || null;
-  }
+        if (error) throw new Error(error.message);
 
-  // =========================
-  // 🔹 PREVISÃO DE HORAS
-  // =========================
-  getPrevisao(horasPorDia, dias) {
-    return horasPorDia * dias;
-  }
+        return horas_voadas;
+    }
 
-  // =========================
-  // 🔹 TOTAL + PREVISÃO
-  // =========================
-  getTotalComPrevisao(ano, mes, horasPorDia, dias) {
-    const atual = this.getTotalMes(ano, mes);
-    const previsao = this.getPrevisao(horasPorDia, dias);
-    return atual + previsao;
-  }
+    // =========================
+    // UPLOAD DE FOTO
+    // =========================
+    async uploadFoto(file, userId) {
+
+        const fileName = `${userId}_${Date.now()}.jpg`;
+
+        const { data, error } = await supabase.storage
+            .from('flight-photos')
+            .upload(fileName, file);
+
+        if (error) throw new Error(error.message);
+
+        const { data: publicUrl } = supabase.storage
+            .from('flight-photos')
+            .getPublicUrl(fileName);
+
+        return publicUrl.publicUrl;
+    }
+
+    // =========================
+    // RESUMO DO DIA
+    // =========================
+    async getResumoDia(userId, data) {
+
+        const { data: registros, error } = await supabase
+            .from('flight_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('data_voo', data);
+
+        if (error) throw new Error(error.message);
+
+        let total = 0;
+
+        registros.forEach(r => {
+            total += Number(r.horas_voadas || 0);
+        });
+
+        return {
+            total_horas: total,
+            registros: registros
+        };
+    }
+
+    // =========================
+    // DIAS CONSECUTIVOS VOADOS
+    // =========================
+    async getDiasConsecutivos(userId) {
+
+        const { data, error } = await supabase
+            .from('flight_logs')
+            .select('data_voo')
+            .eq('user_id', userId)
+            .order('data_voo', { ascending: false });
+
+        if (error) throw new Error(error.message);
+
+        let consecutivos = 0;
+        let dataAtual = new Date();
+
+        for (let i = 0; i < data.length; i++) {
+            const vooData = new Date(data[i].data_voo);
+
+            const diff = Math.floor(
+                (dataAtual - vooData) / (1000 * 60 * 60 * 24)
+            );
+
+            if (diff === i) {
+                consecutivos++;
+            } else {
+                break;
+            }
+        }
+
+        return consecutivos;
+    }
+
+    // =========================
+    // PREVISÃO DE HORAS
+    // =========================
+    preverHoras(mediaDiaria, diasRestantes) {
+        return Number((mediaDiaria * diasRestantes).toFixed(1));
+    }
+
 }
+
+export default new FlightHours();
