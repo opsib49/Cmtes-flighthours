@@ -1,152 +1,191 @@
-import { supabase } from './supabase-config.js';
+import { getSupabase } from '/js/supabase-config.js';
 
-class FlightHours {
+export class FlightHours {
+  constructor() {
+    this.supabase = null;
+  }
 
-    // =========================
-    // BUSCAR REGISTROS DO CMTE
-    // =========================
-    async getMyFlights(userId) {
-        const { data, error } = await supabase
-            .from('flight_logs')
-            .select('*')
-            .eq('user_id', userId)
-            .order('data_voo', { ascending: false });
+  async init() {
+    this.supabase = await getSupabase();
+  }
 
-        if (error) throw new Error(error.message);
+  calcularHoras(horimetroInicial, horimetroFinal) {
+    const inicial = Number(horimetroInicial);
+    const final = Number(horimetroFinal);
 
-        return data || [];
+    if (!Number.isFinite(inicial) || !Number.isFinite(final)) {
+      throw new Error('Horímetros inválidos.');
     }
 
-    // =========================
-    // CALCULAR HORAS
-    // =========================
-    calcularHoras(inicial, final) {
-        const horas = Number(final) - Number(inicial);
-
-        if (horas < 0) {
-            throw new Error('Horímetro final menor que o inicial');
-        }
-
-        return Number(horas.toFixed(1));
+    if (final < inicial) {
+      throw new Error('Horímetro final menor que o inicial.');
     }
 
-    // =========================
-    // REGISTRAR VOO (ADMIN)
-    // =========================
-    async registrarVoo({
-        user_id,
-        data_voo,
-        horimetro_inicial,
-        horimetro_final,
-        foto_url
-    }) {
+    return Number((final - inicial).toFixed(1));
+  }
 
-        const horas_voadas = this.calcularHoras(
-            horimetro_inicial,
-            horimetro_final
-        );
+  async getPerfilUsuario(userId) {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-        const { error } = await supabase
-            .from('flight_logs')
-            .insert({
-                user_id,
-                data_voo,
-                horimetro_inicial,
-                horimetro_final,
-                horas_voadas,
-                foto_url
-            });
+    if (error) throw new Error(error.message);
+    return data;
+  }
 
-        if (error) throw new Error(error.message);
+  async getEventosCalendario(pilotoId) {
+    const { data, error } = await this.supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('piloto_id', pilotoId)
+      .order('data', { ascending: true });
 
-        return horas_voadas;
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  async getLogsHoras(pilotoId) {
+    const { data, error } = await this.supabase
+      .from('flight_hours_logs')
+      .select('*')
+      .eq('piloto_id', pilotoId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  getResumoDia(eventos, data) {
+    const evento = eventos.find(e => e.data === data);
+
+    if (!evento) {
+      return {
+        data,
+        status: 'SEM_REGISTRO',
+        horas: 0,
+        horimetro_inicial: null,
+        horimetro_final: null,
+        foto_url: null,
+        observacao: ''
+      };
     }
 
-    // =========================
-    // UPLOAD DE FOTO
-    // =========================
-    async uploadFoto(file, userId) {
+    return {
+      data: evento.data,
+      status: evento.status || 'SEM_REGISTRO',
+      horas: Number(evento.horas || 0),
+      horimetro_inicial: evento.horimetro_inicial,
+      horimetro_final: evento.horimetro_final,
+      foto_url: evento.foto_url,
+      observacao: evento.observacao || ''
+    };
+  }
 
-        const fileName = `${userId}_${Date.now()}.jpg`;
+  getTotalMes(eventos, ano, mes) {
+    return eventos
+      .filter(e => {
+        const d = new Date(e.data + 'T00:00:00');
+        return d.getFullYear() === ano && d.getMonth() + 1 === mes;
+      })
+      .reduce((total, e) => total + Number(e.horas || 0), 0);
+  }
 
-        const { data, error } = await supabase.storage
-            .from('flight-photos')
-            .upload(fileName, file);
+  getDiasVoados(eventos, ano, mes) {
+    return eventos.filter(e => {
+      const d = new Date(e.data + 'T00:00:00');
+      return (
+        e.status === 'VOADO' &&
+        d.getFullYear() === ano &&
+        d.getMonth() + 1 === mes
+      );
+    }).length;
+  }
 
-        if (error) throw new Error(error.message);
+  getDiasConsecutivosVoados(eventos) {
+    const voados = eventos
+      .filter(e => e.status === 'VOADO')
+      .map(e => e.data)
+      .sort();
 
-        const { data: publicUrl } = supabase.storage
-            .from('flight-photos')
-            .getPublicUrl(fileName);
+    if (!voados.length) return 0;
 
-        return publicUrl.publicUrl;
+    let maior = 1;
+    let atual = 1;
+
+    for (let i = 1; i < voados.length; i++) {
+      const anterior = new Date(voados[i - 1] + 'T00:00:00');
+      const corrente = new Date(voados[i] + 'T00:00:00');
+
+      const diff = (corrente - anterior) / (1000 * 60 * 60 * 24);
+
+      if (diff === 1) {
+        atual++;
+        maior = Math.max(maior, atual);
+      } else {
+        atual = 1;
+      }
     }
 
-    // =========================
-    // RESUMO DO DIA
-    // =========================
-    async getResumoDia(userId, data) {
+    return maior;
+  }
 
-        const { data: registros, error } = await supabase
-            .from('flight_logs')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('data_voo', data);
+  getProximaFolga(eventos) {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
 
-        if (error) throw new Error(error.message);
+    const futuras = eventos
+      .filter(e => {
+        const d = new Date(e.data + 'T00:00:00');
+        return d >= hoje && String(e.status || '').includes('FOLGA');
+      })
+      .sort((a, b) => new Date(a.data) - new Date(b.data));
 
-        let total = 0;
+    return futuras[0] || null;
+  }
 
-        registros.forEach(r => {
-            total += Number(r.horas_voadas || 0);
-        });
+  preverHoras(horasPorDia, quantidadeDias) {
+    const horas = Number(horasPorDia);
+    const dias = Number(quantidadeDias);
 
-        return {
-            total_horas: total,
-            registros: registros
-        };
-    }
+    if (!Number.isFinite(horas) || !Number.isFinite(dias)) return 0;
 
-    // =========================
-    // DIAS CONSECUTIVOS VOADOS
-    // =========================
-    async getDiasConsecutivos(userId) {
+    return Number((horas * dias).toFixed(1));
+  }
 
-        const { data, error } = await supabase
-            .from('flight_logs')
-            .select('data_voo')
-            .eq('user_id', userId)
-            .order('data_voo', { ascending: false });
+  getTotalComPrevisao(eventos, ano, mes, horasPorDia, quantidadeDias) {
+    const totalAtual = this.getTotalMes(eventos, ano, mes);
+    const previsto = this.preverHoras(horasPorDia, quantidadeDias);
 
-        if (error) throw new Error(error.message);
+    return Number((totalAtual + previsto).toFixed(1));
+  }
 
-        let consecutivos = 0;
-        let dataAtual = new Date();
+  async solicitarFolga(pilotoId, data, justificativa) {
+    const { error } = await this.supabase
+      .from('calendar_requests')
+      .insert({
+        piloto_id: pilotoId,
+        data,
+        tipo_solicitacao: 'FOLGA',
+        justificativa
+      });
 
-        for (let i = 0; i < data.length; i++) {
-            const vooData = new Date(data[i].data_voo);
+    if (error) throw new Error(error.message);
+  }
 
-            const diff = Math.floor(
-                (dataAtual - vooData) / (1000 * 60 * 60 * 24)
-            );
+  async solicitarAjuste(pilotoId, data, justificativa) {
+    const { error } = await this.supabase
+      .from('calendar_requests')
+      .insert({
+        piloto_id: pilotoId,
+        data,
+        tipo_solicitacao: 'AJUSTE_HORAS',
+        justificativa
+      });
 
-            if (diff === i) {
-                consecutivos++;
-            } else {
-                break;
-            }
-        }
-
-        return consecutivos;
-    }
-
-    // =========================
-    // PREVISÃO DE HORAS
-    // =========================
-    preverHoras(mediaDiaria, diasRestantes) {
-        return Number((mediaDiaria * diasRestantes).toFixed(1));
-    }
-
+    if (error) throw new Error(error.message);
+  }
 }
 
 export default new FlightHours();
