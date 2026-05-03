@@ -2,285 +2,199 @@
    RESET
 ========================= */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-/* =========================
-   VARIÁVEIS
-========================= */
-:root {
-  --bg-primary: #020503;
-  --bg-secondary: #0f172a;
-  --surface: #111827;
-  --surface-soft: #1e293b;
-  --text-primary: #ffffff;
-  --text-muted: #94a3b8;
-  --accent: #10b981;
-  --accent-dark: #059669;
-  --gold: #d4af37;
-  --danger: #ef4444;
-  --warning: #facc15;
-  --border: rgba(16, 185, 129, 0.22);
-}
-
-/* =========================
-   BODY
-========================= */
 body {
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
-  color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: radial-gradient(circle at center, #020503, #000000);
+    color: #e5e7eb;
+    min-height: 100vh;
 }
 
 /* =========================
-   CONTAINER
+   HEADER
 ========================= */
-.container {
-  max-width: 520px;
-  margin: auto;
-  padding: 18px;
-}
-
-/* =========================
-   TÍTULOS
-========================= */
-h1, h2, h3 {
-  color: var(--accent);
-  text-align: center;
-  margin-bottom: 15px;
-}
-
-/* =========================
-   CARDS
-========================= */
-.card {
-  background: rgba(17, 24, 39, 0.92);
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.42);
-}
-
-/* =========================
-   INPUTS
-========================= */
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border-radius: 12px;
-  background: #020503;
-  color: white;
-  border: 1px solid var(--border);
-  font-size: 16px;
-  outline: none;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(16,185,129,.12);
-}
-
-textarea {
-  resize: vertical;
+.header {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 25px;
+    background: rgba(0,0,0,0.7);
+    border-bottom: 1px solid #10b981;
 }
 
 /* =========================
    BOTÕES
 ========================= */
 button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 15px;
-  background: var(--accent);
-  color: #02130b;
-  font-weight: bold;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: .2s ease;
-  -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
 }
 
 button:hover {
-  background: var(--accent-dark);
-}
-
-button:active {
-  transform: scale(.97);
-}
-
-button.secondary {
-  background: var(--surface-soft);
-  color: white;
-  border: 1px solid var(--border);
-}
-
-button.danger {
-  background: var(--danger);
-  color: white;
-}
-
-/* =========================
-   MENSAGENS
-========================= */
-.msg {
-  margin-top: 15px;
-  text-align: center;
-  font-size: 14px;
-}
-
-.msg.error {
-  color: var(--danger);
-}
-
-.msg.success {
-  color: var(--accent);
-}
-
-.msg.warning {
-  color: var(--warning);
-}
-
-/* =========================
-   LINKS
-========================= */
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.link {
-  text-align: center;
-  margin-top: 15px;
-}
-
-/* =========================
-   AVATAR / FOTO
-========================= */
-.avatar {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: var(--surface-soft);
-  object-fit: cover;
-  border: 2px solid var(--accent);
-  margin: 0 auto 10px;
-  display: block;
-}
-
-/* =========================
-   RADAR PREMIUM
-========================= */
-.radar {
-  width: 100%;
-  height: 300px;
-  border-radius: 20px;
-  background: radial-gradient(circle, rgba(16,185,129,0.1), transparent);
-  border: 1px solid rgba(16,185,129,0.2);
-}
-
-.radar-premium {
-  width: 100%;
-  height: 300px;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 1px solid rgba(212, 175, 55, 0.28);
-  box-shadow: 0 0 35px rgba(16,185,129,.12);
-  background: #020503;
-}
-
-#radarCanvas {
-  display: block;
-  width: 100%;
-  height: 300px;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px #10b981;
 }
 
 /* =========================
    CALENDÁRIO
 ========================= */
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+#calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    padding: 20px;
 }
 
 .day {
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--surface-soft);
-  text-align: center;
-  cursor: pointer;
-  font-size: 14px;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    position: relative;
 }
 
-.day.voado {
-  background: #16a34a;
+.day:hover {
+    background: rgba(16,185,129,0.2);
+    border: 1px solid #10b981;
 }
 
-.day.folga {
-  background: #64748b;
+.day.empty {
+    background: transparent;
+    border: none;
 }
 
-.day.standby {
-  background: #0ea5e9;
+.day .numero {
+    font-size: 14px;
+    color: #9ca3af;
 }
 
-.day.pendente {
-  outline: 2px solid var(--warning);
-}
-
-/* =========================
-   MODAIS
-========================= */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.82);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 999;
-}
-
-.modal-content {
-  width: 100%;
-  max-width: 420px;
-  background: #020503;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 0 35px rgba(16,185,129,.12);
+.day .horas {
+    font-size: 18px;
+    font-weight: bold;
+    color: #10b981;
+    margin-top: 5px;
 }
 
 /* =========================
-   RESPONSIVO
+   MODAL
 ========================= */
-@media (max-width: 600px) {
-  .container {
-    padding: 14px;
-  }
+#dayModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+}
 
-  .card {
-    padding: 16px;
-  }
+.modal-box {
+    background: #020503;
+    padding: 25px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    border: 1px solid #10b981;
+    box-shadow: 0 0 20px #10b98155;
+}
 
-  .day {
-    font-size: 12px;
-    min-height: 44px;
+.modal-box h3 {
+    margin-bottom: 10px;
+    color: #10b981;
+}
+
+.modal-box p {
+    margin: 5px 0;
+}
+
+.modal-box textarea {
+    background: #000;
+    border: 1px solid #10b981;
+    border-radius: 8px;
     padding: 8px;
-  }
+    color: white;
+}
+
+.modal-box button {
+    width: 100%;
+    margin-top: 8px;
+}
+
+/* =========================
+   RESUMO
+========================= */
+.summary {
+    padding: 20px;
+}
+
+.summary div {
+    margin: 5px 0;
+}
+
+/* =========================
+   RADAR (MAPA DOURADO)
+========================= */
+.radar {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background: radial-gradient(circle, #000000, #020503);
+    overflow: hidden;
+    border: 1px solid #d4af37;
+    border-radius: 15px;
+}
+
+.radar::before {
+    content: "";
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: repeating-radial-gradient(
+        circle,
+        rgba(212,175,55,0.1),
+        rgba(212,175,55,0.1) 2px,
+        transparent 2px,
+        transparent 20px
+    );
+    animation: radarRotate 10s linear infinite;
+}
+
+@keyframes radarRotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================
+   CÍRCULO DE HORAS (PROGRESSO)
+========================= */
+.circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: conic-gradient(
+        #10b981 var(--percent),
+        rgba(255,255,255,0.1) var(--percent)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px auto;
+    font-weight: bold;
 }
