@@ -1,203 +1,156 @@
-export class RadarEngine {
-  constructor(containerId, options = {}) {
-    this.container = document.getElementById(containerId);
-    this.canvas = null;
-    this.ctx = null;
-    this.angle = 0;
-    this.animationFrame = null;
+import FlightHours from './FlightHours.js';
 
-    this.options = {
-      height: options.height || 300,
-      gridColor: options.gridColor || 'rgba(212, 175, 55, 0.32)',
-      sweepColor: options.sweepColor || 'rgba(16, 185, 129, 0.55)',
-      mapColor: options.mapColor || 'rgba(212, 175, 55, 0.18)'
-    };
-  }
+class RadarEngine {
 
-  init() {
-    if (!this.container) return;
-
-    this.container.innerHTML = `
-      <div class="radar-premium">
-        <canvas id="radarCanvas"></canvas>
-      </div>
-    `;
-
-    this.canvas = document.getElementById('radarCanvas');
-    this.ctx = this.canvas.getContext('2d');
-
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-
-    this.start();
-  }
-
-  resize() {
-    if (!this.canvas || !this.container) return;
-
-    const ratio = window.devicePixelRatio || 1;
-    const width = this.container.offsetWidth;
-    const height = this.options.height;
-
-    this.canvas.width = width * ratio;
-    this.canvas.height = height * ratio;
-    this.canvas.style.width = `${width}px`;
-    this.canvas.style.height = `${height}px`;
-
-    this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  }
-
-  start() {
-    if (this.animationFrame) return;
-
-    const loop = () => {
-      this.draw();
-      this.angle += 0.018;
-      this.animationFrame = requestAnimationFrame(loop);
-    };
-
-    loop();
-  }
-
-  stop() {
-    if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = null;
-    }
-  }
-
-  draw() {
-    const ctx = this.ctx;
-    const w = this.container.offsetWidth;
-    const h = this.options.height;
-
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, w, h);
-
-    this.drawBackground(ctx, w, h);
-    this.drawWorldMap(ctx, w, h);
-    this.drawGrid(ctx, w, h);
-    this.drawSweep(ctx, w, h);
-    this.drawCenter(ctx, w, h);
-  }
-
-  drawBackground(ctx, w, h) {
-    const gradient = ctx.createRadialGradient(
-      w / 2, h / 2, 10,
-      w / 2, h / 2, Math.max(w, h) / 1.2
-    );
-
-    gradient.addColorStop(0, '#04140b');
-    gradient.addColorStop(0.45, '#020a05');
-    gradient.addColorStop(1, '#020503');
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, w, h);
-  }
-
-  drawWorldMap(ctx, w, h) {
-    ctx.save();
-
-    ctx.strokeStyle = this.options.mapColor;
-    ctx.lineWidth = 1;
-
-    const continents = [
-      [[0.12,0.38],[0.18,0.30],[0.25,0.33],[0.28,0.43],[0.24,0.55],[0.18,0.60],[0.13,0.52]],
-      [[0.30,0.58],[0.34,0.65],[0.36,0.78],[0.33,0.88],[0.29,0.74],[0.27,0.64]],
-      [[0.45,0.35],[0.52,0.28],[0.63,0.32],[0.69,0.42],[0.63,0.52],[0.51,0.50],[0.44,0.44]],
-      [[0.54,0.54],[0.60,0.62],[0.59,0.75],[0.53,0.83],[0.49,0.70],[0.50,0.60]],
-      [[0.68,0.36],[0.78,0.30],[0.88,0.38],[0.86,0.50],[0.75,0.54],[0.67,0.48]],
-      [[0.78,0.64],[0.86,0.70],[0.84,0.80],[0.76,0.76]]
-    ];
-
-    continents.forEach(shape => {
-      ctx.beginPath();
-      shape.forEach((p, i) => {
-        const x = p[0] * w;
-        const y = p[1] * h;
-
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.closePath();
-      ctx.stroke();
-    });
-
-    ctx.restore();
-  }
-
-  drawGrid(ctx, w, h) {
-    const cx = w / 2;
-    const cy = h / 2;
-    const rMax = Math.min(w, h) * 0.42;
-
-    ctx.save();
-    ctx.strokeStyle = this.options.gridColor;
-    ctx.lineWidth = 1;
-
-    for (let i = 1; i <= 4; i++) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, (rMax / 4) * i, 0, Math.PI * 2);
-      ctx.stroke();
+    constructor() {
+        this.currentDate = new Date();
+        this.eventos = [];
+        this.userId = null;
     }
 
-    for (let i = 0; i < 12; i++) {
-      const a = (Math.PI * 2 / 12) * i;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * rMax, cy + Math.sin(a) * rMax);
-      ctx.stroke();
+    async init(userId) {
+        this.userId = userId;
+        await FlightHours.init();
+        this.eventos = await FlightHours.getEventosCalendario(userId);
+
+        this.renderCalendario();
     }
 
-    ctx.restore();
-  }
+    // =========================
+    // RENDER CALENDÁRIO
+    // =========================
+    renderCalendario() {
 
-  drawSweep(ctx, w, h) {
-    const cx = w / 2;
-    const cy = h / 2;
-    const r = Math.min(w, h) * 0.42;
+        const container = document.getElementById('calendar');
+        if (!container) return;
 
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(this.angle);
+        container.innerHTML = '';
 
-    const gradient = ctx.createLinearGradient(0, 0, r, 0);
-    gradient.addColorStop(0, 'rgba(16,185,129,0.85)');
-    gradient.addColorStop(0.5, this.options.sweepColor);
-    gradient.addColorStop(1, 'rgba(16,185,129,0)');
+        const ano = this.currentDate.getFullYear();
+        const mes = this.currentDate.getMonth();
 
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, r, -0.08, 0.08);
-    ctx.closePath();
-    ctx.fill();
+        const primeiroDia = new Date(ano, mes, 1).getDay();
+        const totalDias = new Date(ano, mes + 1, 0).getDate();
 
-    ctx.strokeStyle = 'rgba(16,255,150,.9)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(r, 0);
-    ctx.stroke();
+        for (let i = 0; i < primeiroDia; i++) {
+            container.innerHTML += `<div class="day empty"></div>`;
+        }
 
-    ctx.restore();
-  }
+        for (let dia = 1; dia <= totalDias; dia++) {
 
-  drawCenter(ctx, w, h) {
-    const cx = w / 2;
-    const cy = h / 2;
+            const dataStr = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 
-    ctx.save();
+            const resumo = FlightHours.getResumoDia(this.eventos, dataStr);
 
-    ctx.fillStyle = '#10b981';
-    ctx.shadowColor = '#10b981';
-    ctx.shadowBlur = 18;
+            container.innerHTML += `
+                <div class="day" data-date="${dataStr}">
+                    <div class="numero">${dia}</div>
+                    <div class="horas">${resumo.horas || ''}</div>
+                </div>
+            `;
+        }
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-    ctx.fill();
+        this.bindEventosDias();
+    }
 
-    ctx.restore();
-  }
+    // =========================
+    // CLICK NO DIA
+    // =========================
+    bindEventosDias() {
+        document.querySelectorAll('.day').forEach(el => {
+            el.addEventListener('click', () => {
+                const data = el.dataset.date;
+
+                if (!data) return;
+
+                this.toggleModal(data);
+            });
+        });
+    }
+
+    // =========================
+    // MODAL FLUTUANTE
+    // =========================
+    toggleModal(data) {
+
+        let modal = document.getElementById('dayModal');
+
+        if (modal) {
+            modal.remove();
+            return;
+        }
+
+        const resumo = FlightHours.getResumoDia(this.eventos, data);
+
+        modal = document.createElement('div');
+        modal.id = 'dayModal';
+
+        modal.innerHTML = `
+            <div class="modal-box">
+                <h3>${data}</h3>
+
+                <p><strong>Status:</strong> ${resumo.status}</p>
+                <p><strong>Horas:</strong> ${resumo.horas}</p>
+
+                ${resumo.horimetro_inicial ? `<p>Inicial: ${resumo.horimetro_inicial}</p>` : ''}
+                ${resumo.horimetro_final ? `<p>Final: ${resumo.horimetro_final}</p>` : ''}
+
+                ${resumo.foto_url ? `<img src="${resumo.foto_url}" style="width:100%; border-radius:10px;">` : ''}
+
+                <textarea id="justificativa" placeholder="Justificativa..." style="width:100%; margin-top:10px;"></textarea>
+
+                <button id="btnFolga">Solicitar Folga</button>
+                <button id="btnAjuste">Solicitar Ajuste</button>
+                <button id="btnFechar">Fechar</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Eventos dos botões
+        document.getElementById('btnFechar').onclick = () => modal.remove();
+
+        document.getElementById('btnFolga').onclick = async () => {
+            const justificativa = document.getElementById('justificativa').value;
+
+            await FlightHours.solicitarFolga(this.userId, data, justificativa);
+
+            alert('Solicitação de folga enviada!');
+            modal.remove();
+        };
+
+        document.getElementById('btnAjuste').onclick = async () => {
+            const justificativa = document.getElementById('justificativa').value;
+
+            await FlightHours.solicitarAjuste(this.userId, data, justificativa);
+
+            alert('Solicitação de ajuste enviada!');
+            modal.remove();
+        };
+    }
+
+    // =========================
+    // RESUMOS AVANÇADOS
+    // =========================
+    renderResumoMensal() {
+
+        const ano = this.currentDate.getFullYear();
+        const mes = this.currentDate.getMonth() + 1;
+
+        const total = FlightHours.getTotalMes(this.eventos, ano, mes);
+        const dias = FlightHours.getDiasVoados(this.eventos, ano, mes);
+        const consecutivos = FlightHours.getDiasConsecutivosVoados(this.eventos);
+        const folga = FlightHours.getProximaFolga(this.eventos);
+
+        document.getElementById('totalHoras').textContent = total;
+        document.getElementById('diasVoados').textContent = dias;
+        document.getElementById('diasConsecutivos').textContent = consecutivos;
+
+        if (folga) {
+            document.getElementById('proximaFolga').textContent = folga.data;
+        }
+    }
+
 }
+
+export default new RadarEngine();
