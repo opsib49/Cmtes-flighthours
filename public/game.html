@@ -1,124 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Corrida Maluca - VOARE</title>
+
+  <link rel="stylesheet" href="/css/styles.css"/>
+  <link rel="stylesheet" href="/css/game.css"/>
+</head>
+
+<body>
+  <main class="container">
+
+    <section class="card" style="text-align:center;margin-top:18px;">
+      <h1>🎲 Corrida Maluca</h1>
+      <p class="alert">
+        Horas fictícias do jogo. Não alteram as horas reais de voo.
+      </p>
+
+      <div id="userBox" style="margin-top:15px;color:#94a3b8;">
+        Carregando comandante...
+      </div>
+
+      <div id="statusBox" class="msg warning">
+        Verificando status do dia...
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:15px;text-align:center;">
+      <h3>Corrida diária</h3>
+
+      <div id="diceBox" style="
+        width:130px;
+        height:130px;
+        margin:20px auto;
+        border-radius:28px;
+        background:#020503;
+        border:1px solid rgba(16,185,129,.35);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:70px;
+        box-shadow:0 0 35px rgba(16,185,129,.12);
+      ">
+        🎲
+      </div>
+
+      <button id="btnJogar">🏁 CORRER</button>
+
+      <div id="resultado" class="msg" style="min-height:40px;"></div>
+    </section>
+
+    <section class="card" style="margin-top:15px;">
+      <h3>🏆 Ranking</h3>
+      <div id="ranking">Carregando...</div>
+    </section>
+
+    <section class="card" style="margin-top:15px;">
+      <h3>📢 Feed</h3>
+      <div id="feed">Carregando...</div>
+    </section>
+
+    <section class="card" style="margin-top:15px;">
+      <button id="btnVoltar" class="secondary">Voltar ao início</button>
+    </section>
+
+  </main>
+
 <script type="module">
-import { apiFetch, checkAuthOrRedirect } from './js/supabase-config.js'
+import { checkAuthOrRedirect } from '/js/supabase-config.js';
+import RaceGame from '/js/game/RaceGame.js';
 
-await checkAuthOrRedirect()
+await checkAuthOrRedirect();
 
-const $ = id => document.getElementById(id)
+const $ = id => document.getElementById(id);
 
-async function loadUser(){
-  const data = await apiFetch('/api/me')
-  $('user').innerHTML = `${data.user.nome} - ${data.user.horas_gamificadas}h fictícias`
-}
+const game = new RaceGame();
 
-async function roll(){
-  try{
-    const data = await apiFetch('/api/game/roll', { method:'POST' })
+async function iniciar() {
+  try {
+    await game.init();
 
-    $('resultado').innerText = data.mensagem
+    renderUser();
+    await renderStatus();
+    game.renderRanking('ranking');
+    game.renderFeed('feed');
 
-    if(data.precisaEscolherAlvo){
-      await abrirModalSabotagem()
-    }
+    $('btnJogar').addEventListener('click', jogar);
+    $('btnVoltar').addEventListener('click', () => window.location.href = '/index.html');
 
-    await loadUser()
-    await loadRanking()
-
-  }catch(e){
-    alert(e.message)
+  } catch (e) {
+    alert(e.message);
   }
 }
 
-async function abrirModalSabotagem(){
-  const data = await apiFetch('/api/game/victims')
+function renderUser() {
+  if (!game.user) return;
 
-  const modal = document.createElement('div')
-  modal.className = 'modal-sabotagem'
+  const posicao = game.getMyRankingPosition();
 
-  modal.innerHTML = `
-    <div class="modal-card">
-      <h2>🦊 DICK VIGARISTA</h2>
-      <p>Escolha uma vítima para roubar 2 horas fictícias.</p>
+  $('userBox').innerHTML = `
+    <strong style="color:#10b981;">${game.user.nome || game.user.email}</strong><br>
+    ${Number(game.user.horas_gamificadas || 0)}h fictícias
+    ${posicao ? `<br><span style="color:#facc15;">${posicao}º no ranking</span>` : ''}
+  `;
+}
 
-      <div class="victim-list">
-        ${
-          data.victims.length
-            ? data.victims.map(v => `
-              <button 
-                class="victim-btn ${v.protegido ? 'disabled' : ''}" 
-                data-id="${v.id}" 
-                ${v.protegido ? 'disabled' : ''}
-              >
-                <strong>${v.nome}</strong>
-                <span>${v.horas_gamificadas || 0}h fictícias</span>
-                ${v.protegido ? '<small>Protegido</small>' : ''}
-              </button>
-            `).join('')
-            : '<p>Nenhum comandante disponível.</p>'
-        }
-      </div>
+async function renderStatus() {
+  const status = await game.loadStatus();
 
-      <button id="cancelarSabotagem" class="btn-cancelar">Cancelar</button>
-    </div>
-  `
+  if (status.hasPlayedToday) {
+    $('statusBox').textContent = '✅ Você já correu hoje. Volte amanhã.';
+    $('btnJogar').disabled = true;
+    $('btnJogar').style.opacity = '.55';
+  } else {
+    $('statusBox').textContent = '🟢 Pronto para correr hoje.';
+    $('btnJogar').disabled = false;
+    $('btnJogar').style.opacity = '1';
+  }
+}
 
-  document.body.appendChild(modal)
+async function animarDado(valorFinal) {
+  const dice = $('diceBox');
+  const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
-  modal.querySelectorAll('.victim-btn:not(.disabled)').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      try {
-        const victimId = btn.dataset.id
-        const result = await apiFetch('/api/game/sabotage', {
-          method:'POST',
-          body: JSON.stringify({ victimId })
-        })
+  let count = 0;
 
-        alert(result.mensagem)
-        modal.remove()
+  return new Promise(resolve => {
+    const interval = setInterval(() => {
+      const v = Math.floor(Math.random() * 6);
+      dice.textContent = faces[v];
+      dice.style.transform = `rotate(${Math.random() * 30 - 15}deg) scale(1.05)`;
 
-        await loadUser()
-        await loadRanking()
-        await loadFeed()
+      count++;
 
-      } catch(e) {
-        alert(e.message)
+      if (count > 18) {
+        clearInterval(interval);
+        dice.textContent = faces[valorFinal - 1];
+        dice.style.transform = 'rotate(0deg) scale(1)';
+        resolve();
       }
-    })
-  })
-
-  modal.querySelector('#cancelarSabotagem').addEventListener('click', () => {
-    modal.remove()
-  })
+    }, 55);
+  });
 }
 
-async function loadRanking(){
-  const data = await apiFetch('/api/game/ranking')
+async function jogar() {
+  try {
+    $('resultado').textContent = 'Girando dado...';
+    $('btnJogar').disabled = true;
 
-  $('ranking').innerHTML =
-    data.players.map((p,i)=>
-      `<div class="ranking-line">
-        <span>${i+1}º ${p.nome}</span>
-        <strong>${p.horas_gamificadas || 0}h</strong>
-      </div>`
-    ).join('')
+    const result = await game.roll();
+
+    await animarDado(result.valorDado);
+
+    $('resultado').textContent = result.mensagem;
+
+    if (result.precisaEscolherAlvo) {
+      await game.abrirModalSabotagem(async () => {
+        await game.init();
+        renderUser();
+        game.renderRanking('ranking');
+        game.renderFeed('feed');
+        await renderStatus();
+      });
+    }
+
+    await game.init();
+    renderUser();
+    game.renderRanking('ranking');
+    game.renderFeed('feed');
+    await renderStatus();
+
+  } catch (e) {
+    $('resultado').textContent = '❌ ' + e.message;
+    $('btnJogar').disabled = false;
+  }
 }
 
-async function loadFeed(){
-  const data = await apiFetch('/api/game/feed')
-
-  const feed = document.getElementById('feed')
-  if (!feed) return
-
-  feed.innerHTML = data.feed.map(item => `
-    <div class="feed-line">
-      ${item.mensagem}
-      <small>${new Date(item.timestamp).toLocaleString('pt-BR')}</small>
-    </div>
-  `).join('')
-}
-
-window.roll = roll
-
-await loadUser()
-await loadRanking()
-await loadFeed()
+iniciar();
 </script>
+</body>
+</html>
