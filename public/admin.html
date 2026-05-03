@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Admin - VOARE FlightHours</title>
+  <link rel="stylesheet" href="/css/styles.css"/>
+
+  <style>
+    body {
+      background:#020503;
+      color:#e1e2e4;
+      font-family: Inter, Arial, sans-serif;
+      margin:0;
+      padding:16px;
+    }
+
+    .admin-wrap {
+      max-width:520px;
+      margin:0 auto;
+      display:grid;
+      gap:16px;
+    }
+
+    .card {
+      background:rgba(10,26,16,.78);
+      border:1px solid rgba(16,185,129,.18);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:0 18px 45px rgba(0,0,0,.25);
+    }
+
+    h1, h2 {
+      margin:0;
+      color:#10b981;
+    }
+
+    label {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      color:#94a3b8;
+      font-weight:800;
+      display:block;
+      margin-bottom:6px;
+    }
+
+    input, select, textarea {
+      width:100%;
+      box-sizing:border-box;
+      background:#020b06;
+      color:white;
+      border:1px solid rgba(16,185,129,.22);
+      border-radius:16px;
+      padding:14px;
+      font-size:16px;
+      outline:none;
+    }
+
+    textarea {
+      min-height:86px;
+      resize:vertical;
+    }
+
+    .grid {
+      display:grid;
+      gap:12px;
+    }
+
+    .btn {
+      width:100%;
+      border:none;
+      border-radius:18px;
+      padding:15px;
+      font-weight:900;
+      cursor:pointer;
+      font-size:15px;
+    }
+
+    .btn-primary {
+      background:#10b981;
+      color:#02130b;
+    }
+
+    .btn-secondary {
+      background:#1e293b;
+      color:white;
+    }
+
+    .btn-danger {
+      background:#dc2626;
+      color:white;
+    }
+
+    .foto-preview {
+      width:112px;
+      height:112px;
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid rgba(16,185,129,.45);
+      background:#020b06;
+      margin:0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#64748b;
+      font-weight:900;
+    }
+
+    .foto-preview img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .resultado {
+      text-align:center;
+      font-size:32px;
+      font-weight:900;
+      color:#facc15;
+      padding:12px;
+      border:1px solid rgba(250,204,21,.22);
+      border-radius:18px;
+      background:rgba(250,204,21,.08);
+    }
+
+    .muted {
+      color:#94a3b8;
+      font-size:13px;
+      line-height:1.4;
+    }
+
+    .topbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+
+    .hidden {
+      display:none;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="admin-wrap">
+
+    <section class="card topbar">
+      <div>
+        <h1>VOARE Admin</h1>
+        <p class="muted">Lançamento e correção de horas reais</p>
+      </div>
+      <button id="btnVoltar" class="btn btn-secondary" style="width:auto;padding:10px 14px;">Voltar</button>
+    </section>
+
+    <section class="card grid">
+      <h2>1. Selecionar comandante</h2>
+
+      <div>
+        <label>Comandante</label>
+        <select id="pilotoSelect">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+
+      <div id="perfilBox" class="hidden grid">
+        <div class="foto-preview" id="fotoPerfilBox">--</div>
+        <p id="dadosPiloto" class="muted" style="text-align:center;"></p>
+
+        <button id="btnSubstituirFoto" class="btn btn-secondary" type="button">
+          Substituir foto do perfil
+        </button>
+
+        <button id="btnDeletarFoto" class="btn btn-danger" type="button">
+          Deletar foto do perfil
+        </button>
+      </div>
+    </section>
+
+    <section class="card grid">
+      <h2>2. Evidência</h2>
+
+      <p class="muted">
+        Tire ou envie uma foto do horímetro. A foto ficará registrada no lançamento e poderá ir para automação.
+      </p>
+
+      <input id="fotoEvidencia" type="file" accept="image/*" capture="environment"/>
+
+      <div id="previewEvidencia" class="hidden" style="text-align:center;">
+        <img id="previewEvidenciaImg" style="max-width:100%;border-radius:18px;border:1px solid rgba(16,185,129,.22);"/>
+      </div>
+    </section>
+
+    <section class="card grid">
+      <h2>3. Horímetro</h2>
+
+      <div>
+        <label>Horímetro inicial</label>
+        <input id="horimetroInicial" type="number" step="0.1" placeholder="Ex: 2025.5"/>
+      </div>
+
+      <div>
+        <label>Horímetro final</label>
+        <input id="horimetroFinal" type="number" step="0.1" placeholder="Ex: 2029.5"/>
+      </div>
+
+      <div class="resultado" id="horasCalculadas">0.0h</div>
+
+      <div>
+        <label>Observação</label>
+        <textarea id="observacao" placeholder="Ex: lançamento via foto do horímetro"></textarea>
+      </div>
+
+      <button id="btnConfirmar" class="btn btn-primary" type="button">
+        Confirmar lançamento
+      </button>
+    </section>
+
+    <section class="card grid">
+      <h2>4. Status</h2>
+      <p id="statusBox" class="muted">Aguardando ação.</p>
+    </section>
+
+  </main>
+
+<script type="module">
+import { apiFetch, checkAuthOrRedirect, getSupabase } from './js/supabase-config.js';
+
+const $ = id => document.getElementById(id);
+
+let supabase = null;
+let usuarioAtual = null;
+let pilotos = [];
+let pilotoSelecionado = null;
+let fotoEvidenciaBase64 = null;
+let novaFotoPerfilBase64 = null;
+
+await iniciar();
+
+async function iniciar() {
+  supabase = await getSupabase();
+
+  await checkAuthOrRedirect();
+  await validarAdmin();
+  await carregarPilotos();
+
+  $('btnVoltar').addEventListener('click', () => window.location.href = '/index.html');
+  $('pilotoSelect').addEventListener('change', selecionarPiloto);
+  $('fotoEvidencia').addEventListener('change', previewEvidencia);
+  $('horimetroInicial').addEventListener('input', calcularHoras);
+  $('horimetroFinal').addEventListener('input', calcularHoras);
+  $('btnConfirmar').addEventListener('click', confirmarLancamento);
+  $('btnSubstituirFoto').addEventListener('click', substituirFotoPerfil);
+  $('btnDeletarFoto').addEventListener('click', deletarFotoPerfil);
+}
+
+async function validarAdmin() {
+  const data = await apiFetch('/api/me');
+  usuarioAtual = data.user;
+
+  if (usuarioAtual.perfil !== 'admin') {
+    alert('Acesso restrito ao administrador.');
+    window.location.href = '/index.html';
+  }
+}
+
+async function carregarPilotos() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, nome, email, telefone, foto_url, horimetro_atual, horas_gamificadas, perfil')
+    .eq('perfil', 'cmte')
+    .order('nome', { ascending: true });
+
+  if (error) {
+    $('statusBox').textContent = error.message;
+    return;
+  }
+
+  pilotos = data || [];
+
+  $('pilotoSelect').innerHTML = `
+    <option value="">Selecione...</option>
+    ${pilotos.map(p => `<option value="${p.id}">${escapeHTML(p.nome)}</option>`).join('')}
+  `;
+}
+
+function selecionarPiloto() {
+  const id = $('pilotoSelect').value;
+  pilotoSelecionado = pilotos.find(p => p.id === id) || null;
+
+  if (!pilotoSelecionado) {
+    $('perfilBox').classList.add('hidden');
+    return;
+  }
+
+  $('perfilBox').classList.remove('hidden');
+  renderPerfil();
+
+  $('horimetroInicial').value = pilotoSelecionado.horimetro_atual || '';
+  calcularHoras();
+}
+
+function renderPerfil() {
+  const box = $('fotoPerfilBox');
+
+  if (pilotoSelecionado.foto_url) {
+    box.innerHTML = `<img src="${pilotoSelecionado.foto_url}" alt="Foto do comandante">`;
+  } else {
+    box.textContent = getIniciais(pilotoSelecionado.nome);
+  }
+
+  $('dadosPiloto').innerHTML = `
+    <b>${escapeHTML(pilotoSelecionado.nome)}</b><br>
+    ${escapeHTML(pilotoSelecionado.telefone || 'Sem telefone')}<br>
+    Horímetro atual: ${pilotoSelecionado.horimetro_atual || 0}
+  `;
+}
+
+function previewEvidencia(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    fotoEvidenciaBase64 = reader.result;
+    $('previewEvidenciaImg').src = fotoEvidenciaBase64;
+    $('previewEvidencia').classList.remove('hidden');
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function calcularHoras() {
+  const inicial = Number(String($('horimetroInicial').value).replace(',', '.'));
+  const final = Number(String($('horimetroFinal').value).replace(',', '.'));
+
+  if (!Number.isFinite(inicial) || !Number.isFinite(final)) {
+    $('horasCalculadas').textContent = '0.0h';
+    return 0;
+  }
+
+  const horas = final - inicial;
+
+  $('horasCalculadas').textContent = `${horas.toFixed(1)}h`;
+
+  if (horas < 0) {
+    $('horasCalculadas').style.color = '#ef4444';
+  } else {
+    $('horasCalculadas').style.color = '#facc15';
+  }
+
+  return horas;
+}
+
+async function confirmarLancamento() {
+  if (!pilotoSelecionado) return alert('Selecione um comandante.');
+
+  const inicial = Number(String($('horimetroInicial').value).replace(',', '.'));
+  const final = Number(String($('horimetroFinal').value).replace(',', '.'));
+  const horas = calcularHoras();
+
+  if (!Number.isFinite(inicial) || !Number.isFinite(final)) {
+    return alert('Informe horímetro inicial e final.');
+  }
+
+  if (horas <= 0) {
+    return alert('As horas calculadas precisam ser maiores que zero.');
+  }
+
+  if (!fotoEvidenciaBase64) {
+    return alert('A foto de evidência é obrigatória.');
+  }
+
+  $('statusBox').textContent = 'Salvando lançamento...';
+
+  try {
+    const result = await apiFetch('/api/admin/flight-hours', {
+      method: 'POST',
+      body: JSON.stringify({
+        piloto_id: pilotoSelecionado.id,
+        horimetro_inicial: inicial,
+        horimetro_final: final,
+        horas_adicionadas: horas,
+        foto_base64: fotoEvidenciaBase64,
+        observacao: $('observacao').value.trim()
+      })
+    });
+
+    $('statusBox').textContent = result.mensagem || 'Lançamento salvo com sucesso.';
+
+    await carregarPilotos();
+
+    $('fotoEvidencia').value = '';
+    fotoEvidenciaBase64 = null;
+    $('previewEvidencia').classList.add('hidden');
+    $('horimetroFinal').value = '';
+    $('observacao').value = '';
+
+    $('pilotoSelect').value = result.piloto_id || pilotoSelecionado.id;
+    selecionarPiloto();
+
+  } catch (e) {
+    $('statusBox').textContent = 'Erro: ' + e.message;
+    alert(e.message);
+  }
+}
+
+function substituirFotoPerfil() {
+  if (!pilotoSelecionado) return alert('Selecione um comandante.');
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'user';
+
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      novaFotoPerfilBase64 = reader.result;
+
+      try {
+        $('statusBox').textContent = 'Atualizando foto do perfil...';
+
+        const result = await apiFetch('/api/admin/profile-photo', {
+          method: 'POST',
+          body: JSON.stringify({
+            piloto_id: pilotoSelecionado.id,
+            foto_base64: novaFotoPerfilBase64
+          })
+        });
+
+        $('statusBox').textContent = result.mensagem || 'Foto atualizada.';
+
+        await carregarPilotos();
+        $('pilotoSelect').value = pilotoSelecionado.id;
+        selecionarPiloto();
+
+      } catch (err) {
+        alert(err.message);
+        $('statusBox').textContent = 'Erro: ' + err.message;
+      }
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  input.click();
+}
+
+async function deletarFotoPerfil() {
+  if (!pilotoSelecionado) return alert('Selecione um comandante.');
+
+  if (!confirm(`Deletar a foto de ${pilotoSelecionado.nome}?`)) return;
+
+  try {
+    $('statusBox').textContent = 'Deletando foto...';
+
+    const result = await apiFetch('/api/admin/delete-profile-photo', {
+      method: 'POST',
+      body: JSON.stringify({
+        piloto_id: pilotoSelecionado.id
+      })
+    });
+
+    $('statusBox').textContent = result.mensagem || 'Foto deletada.';
+
+    await carregarPilotos();
+    $('pilotoSelect').value = pilotoSelecionado.id;
+    selecionarPiloto();
+
+  } catch (e) {
+    alert(e.message);
+    $('statusBox').textContent = 'Erro: ' + e.message;
+  }
+}
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function getIniciais(nome) {
+  return String(nome || '--').slice(0, 2).toUpperCase();
+}
+</script>
+</body>
+</html>
