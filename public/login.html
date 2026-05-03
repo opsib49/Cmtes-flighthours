@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - FlightHours</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #020503);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: #111827;
+      padding: 30px;
+      border-radius: 15px;
+      width: 350px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #10b981;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background: #10b981;
+      color: black;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .secondary {
+      background: #1e293b;
+      color: white;
+      border: 1px solid rgba(16,185,129,.25);
+    }
+
+    .msg {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+      color: #facc15;
+    }
+
+    .link {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    a {
+      color: #10b981;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>🔐 Entrar no VOARE</h2>
+
+    <form id="formLogin">
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="senha" placeholder="Senha" required>
+
+      <button type="submit">Entrar</button>
+      <button type="button" class="secondary" id="btnVoltar">Voltar</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="link">
+      <a href="/cadastro.html">Não tem conta? Cadastrar</a>
+    </div>
+  </div>
+
+<script type="module">
+import { getSupabase, apiFetch } from '/js/supabase-config.js';
+
+const form = document.getElementById('formLogin');
+const msg = document.getElementById('msg');
+
+document.getElementById('btnVoltar').addEventListener('click', () => {
+  window.location.href = '/index.html';
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+
+  msg.textContent = 'Entrando...';
+
+  try {
+    const supabase = await getSupabase();
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha
+    });
+
+    if (error) {
+      msg.textContent = '❌ ' + error.message;
+      return;
+    }
+
+    const data = await apiFetch('/api/me');
+
+    if (data.user.perfil === 'admin') {
+      window.location.href = '/admin.html';
+    } else {
+      window.location.href = '/game.html';
+    }
+
+  } catch (err) {
+    msg.textContent = '❌ ' + err.message;
+  }
+});
+</script>
+</body>
+</html>
